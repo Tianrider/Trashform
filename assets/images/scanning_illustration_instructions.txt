@@ -1,0 +1,23 @@
+SCANNING ILLUSTRATION SPECIFICATIONS
+
+Please create and place an illustration image named "scanning_illustration.png" in this directory.
+The image should depict hands holding a smartphone that is scanning a plastic bottle, similar to the one shown in the app design.
+
+RECOMMENDATIONS:
+1. Format: PNG with transparency is good, but SVG would be better for scaling
+2. Dimensions: At least 500x500px for PNG to look good on high-resolution devices
+3. Style: Flat, modern illustration style with clean lines
+4. Colors: Use the app's green theme (base color: #2E7D32) for elements like the phone
+5. Composition: Center the hands holding the phone, with the bottle positioned below
+
+If using SVG:
+- Make sure all text is converted to paths
+- Keep the file size reasonable (<100KB if possible)
+- Test on different devices to ensure it scales well
+
+If using PNG:
+- Use transparency where appropriate
+- Save in PNG-24 format with transparency
+- Consider providing multiple resolutions (@2x, @3x) for better display on various devices
+
+This file can be deleted once the illustration is created. 
