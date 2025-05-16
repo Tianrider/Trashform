@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/recommendation.dart';
+import '../services/firestore_service.dart';
 
 class StepByStepGuideScreen extends StatefulWidget {
   final Recommendation recommendation;
@@ -15,6 +18,20 @@ class StepByStepGuideScreen extends StatefulWidget {
 
 class _StepByStepGuideScreenState extends State<StepByStepGuideScreen> {
   int _currentStep = 0;
+  final FirestoreService _firestoreService = FirestoreService();
+  bool _isCompleting = false;
+  final ImagePicker _picker = ImagePicker();
+  File? _projectImage;
+  List<File> _additionalImages = [];
+  final TextEditingController _priceController = TextEditingController();
+  String _projectId = '';
+  bool _isListingOnMarketplace = false;
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -289,12 +306,18 @@ class _StepByStepGuideScreenState extends State<StepByStepGuideScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // Show project completed dialog
-                  _showCompletionDialog();
-                },
-                icon: const Icon(Icons.check),
-                label: const Text('Mark as Completed'),
+                onPressed: _isCompleting ? null : _completeProject,
+                icon: _isCompleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check),
+                label: Text(_isCompleting ? 'Saving...' : 'Mark as Completed'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF377047),
                   foregroundColor: Colors.white,
@@ -311,31 +334,47 @@ class _StepByStepGuideScreenState extends State<StepByStepGuideScreen> {
     );
   }
 
-  Widget _buildMaterialChip(IconData icon, int count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: Colors.black54,
-            size: 14,
+  // Save completed project to Firestore and show completion dialog
+  void _completeProject() async {
+    setState(() {
+      _isCompleting = true;
+    });
+
+    try {
+      // Extract CO2 value from string (e.g., "3.2 kg" -> 3.2)
+      double co2Value = double.tryParse(widget.recommendation.co2Saved
+              .replaceAll(RegExp(r'[^0-9.]'), '')) ??
+          0.0;
+
+      // Save to Firestore
+      _projectId = await _firestoreService.saveCompletedProject(
+        widget.recommendation,
+        co2Value, // CO2 saved value
+        26, // XP earned (dummy value)
+      );
+
+      // Show completion dialog
+      if (mounted) {
+        _showCompletionDialog();
+      }
+    } catch (e) {
+      print('Error completing project: $e');
+      // Show error snackbar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save project. Please try again.'),
+            backgroundColor: Colors.red,
           ),
-          const SizedBox(width: 4),
-          Text(
-            'x$count',
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCompleting = false;
+        });
+      }
+    }
   }
 
   // Show completion dialog
@@ -449,15 +488,14 @@ class _StepByStepGuideScreenState extends State<StepByStepGuideScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // View badges button
+                    // Sell on Marketplace button
                     ElevatedButton.icon(
                       onPressed: () {
-                        // Handle view badges
                         Navigator.pop(context); // Close dialog
-                        Navigator.pop(context); // Return to previous screen
+                        _showMarketplaceDialog();
                       },
-                      icon: const Icon(Icons.recycling, size: 18),
-                      label: const Text('View Badges'),
+                      icon: const Icon(Icons.shopping_bag, size: 18),
+                      label: const Text('Sell on Marketplace'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF377047),
                         foregroundColor: Colors.white,
@@ -497,6 +535,432 @@ class _StepByStepGuideScreenState extends State<StepByStepGuideScreen> {
           ),
         );
       },
+    );
+  }
+
+  // Show marketplace listing dialog
+  void _showMarketplaceDialog() {
+    _priceController.text = '25.00'; // Default price
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'List on Marketplace',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Project name (non-editable)
+                    Text(
+                      widget.recommendation.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Price input
+                    TextField(
+                      controller: _priceController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Price (\$)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.attach_money),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Project photo
+                    const Text(
+                      'Project Photo:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        final XFile? image = await _picker.pickImage(
+                          source: ImageSource.camera,
+                          maxWidth: 800,
+                          maxHeight: 800,
+                          imageQuality: 90,
+                        );
+                        if (image != null) {
+                          setState(() {
+                            _projectImage = File(image.path);
+                          });
+                        }
+                      },
+                      child: Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: _projectImage == null
+                            ? const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo,
+                                    color: Colors.grey,
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Take a photo of your project',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _projectImage!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Additional photos
+                    const Text(
+                      'Additional Photos (Optional):',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Image tiles
+                          ..._additionalImages.map((image) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        image,
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _additionalImages.remove(image);
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+
+                          // Add button
+                          if (_additionalImages.length < 3)
+                            InkWell(
+                              onTap: () async {
+                                final XFile? image = await _picker.pickImage(
+                                  source: ImageSource.camera,
+                                  maxWidth: 800,
+                                  maxHeight: 800,
+                                  imageQuality: 80,
+                                );
+                                if (image != null) {
+                                  setState(() {
+                                    _additionalImages.add(File(image.path));
+                                  });
+                                }
+                              },
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey),
+                                ),
+                                child: const Icon(
+                                  Icons.add_photo_alternate,
+                                  color: Colors.grey,
+                                  size: 32,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // List button
+                        ElevatedButton(
+                          onPressed: _projectImage == null ||
+                                  _isListingOnMarketplace
+                              ? null
+                              : () {
+                                  print("DEBUG: List for Sale button pressed");
+                                  print("DEBUG: Project ID: $_projectId");
+                                  print(
+                                      "DEBUG: Project image path: ${_projectImage?.path}");
+                                  print(
+                                      "DEBUG: Project price: ${_priceController.text}");
+                                  _listOnMarketplace();
+                                  Navigator.pop(context); // Close the dialog
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF377047),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: _isListingOnMarketplace
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Listing...'),
+                                  ],
+                                )
+                              : const Text('List for Sale'),
+                        ),
+
+                        // Cancel button
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.pop(context); // Return to previous screen
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.grey),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  // List project on marketplace
+  void _listOnMarketplace() async {
+    // Set loading state
+    setState(() {
+      _isListingOnMarketplace = true;
+    });
+
+    try {
+      print("DEBUG: Starting _listOnMarketplace method");
+      if (_projectImage == null) {
+        // Show error if no image
+        print("DEBUG: Error - No project image");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please take a photo of your project.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isListingOnMarketplace = false;
+        });
+        return;
+      }
+
+      // Parse price
+      print("DEBUG: Parsing price from text: ${_priceController.text}");
+      final double price = double.tryParse(_priceController.text) ?? 25.00;
+      print("DEBUG: Parsed price: $price");
+
+      // Get category
+      final String category =
+          _getCategoryFromMaterials(widget.recommendation.materials);
+      print("DEBUG: Category: $category");
+
+      print("DEBUG: Starting Firebase upload with:");
+      print("DEBUG: Project ID: $_projectId");
+      print("DEBUG: Name: ${widget.recommendation.name}");
+      print(
+          "DEBUG: Description length: ${widget.recommendation.description.length}");
+      print("DEBUG: Image file exists: ${_projectImage?.existsSync()}");
+      print("DEBUG: Additional images count: ${_additionalImages.length}");
+
+      // List on marketplace
+      final String result = await _firestoreService.addMarketplaceListing(
+        projectId: _projectId,
+        name: widget.recommendation.name,
+        description: widget.recommendation.description,
+        price: price,
+        imageFile: _projectImage!,
+        additionalImageFiles: _additionalImages,
+        category: category,
+      );
+
+      print("DEBUG: Firebase result: $result");
+
+      // Show success message and navigate back to home
+      if (mounted) {
+        setState(() {
+          _isListingOnMarketplace = false;
+        });
+
+        if (result.isNotEmpty) {
+          print("DEBUG: Successfully listed item with ID: $result");
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Project successfully listed on marketplace!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate all the way back to the main screen
+          Navigator.popUntil(context, (route) => route.isFirst);
+        } else {
+          print("DEBUG: Error - Empty result ID returned");
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to list project: Empty ID returned'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('DEBUG: Error listing on marketplace: $e');
+      if (mounted) {
+        setState(() {
+          _isListingOnMarketplace = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to list project: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Determine category based on materials used
+  String _getCategoryFromMaterials(Map<String, int> materials) {
+    if (materials['plastic_bottle'] != null &&
+        materials['plastic_bottle']! > 0) {
+      return 'Plastic';
+    } else if (materials['tin_can'] != null && materials['tin_can']! > 0) {
+      return 'Metal';
+    } else if (materials['glass_bottle'] != null &&
+        materials['glass_bottle']! > 0) {
+      return 'Glass';
+    } else if (materials['paper'] != null && materials['paper']! > 0 ||
+        materials['newspaper'] != null && materials['newspaper']! > 0 ||
+        materials['cardboard'] != null && materials['cardboard']! > 0) {
+      return 'Paper';
+    }
+    return 'Other';
+  }
+
+  Widget _buildMaterialChip(IconData icon, int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: Colors.black54,
+            size: 14,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'x$count',
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

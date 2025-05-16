@@ -1,391 +1,539 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/completed_project.dart';
+import '../models/recommendation.dart';
+import '../services/firestore_service.dart';
+import '../services/realtime_db_service.dart';
 import 'scan_screen.dart';
+import 'chat_list_screen.dart';
+import 'onboarding_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Get current user's display name or default to "there"
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final RealtimeDBService _realtimeDBService = RealtimeDBService();
+  late Future<Map<String, dynamic>> _userStatsFuture;
+
+  // Dummy recommendation for UI testing
+  final Recommendation _recommendedProject = Recommendation(
+    co2Saved: "4.2 kg",
+    description: "Create beautiful terracotta pots from recycled materials",
+    imagePrompt: "Terracotta pot made from recycled materials",
+    materials: {
+      "plastic_bottle": 2,
+      "tin_can": 1,
+    },
+    name: "Terracotta",
+    stepByStep: [
+      "Clean the plastic bottles thoroughly",
+      "Cut the bottles into desired shapes",
+      "Paint with terracotta colored paint",
+      "Let dry completely",
+      "Decorate as desired"
+    ],
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _userStatsFuture = _firestoreService.getUserStats();
+    // Check authentication when screen loads
+    _checkAuthentication();
+  }
+
+  // Check if user is logged in, redirect if not
+  void _checkAuthentication() {
     final user = FirebaseAuth.instance.currentUser;
-    final displayName = user?.displayName ?? "there";
+    if (user == null) {
+      // Delayed navigation to avoid calling during build
+      Future.microtask(() {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+          (route) => false,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check authentication on each build
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Show loading while we redirect
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // Get user display name or email for greeting
+    final String userName = user.displayName?.split(' ')[0] ??
+        (user.email?.split('@')[0] ?? 'User');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-      ),
-      backgroundColor: const Color(0xFFF8F8F8),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        backgroundColor: const Color(0xFFF5F5F5),
+        body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting and notification
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Hello, $displayName!',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF333333),
-                    ),
-                  ),
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          // Notification functionality
-                        },
+              // Greeting section with chat icon
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF5F5F5),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Hello, $userName!',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
                       ),
-                      Positioned(
-                        right: 10,
-                        top: 10,
+                    ),
+                    // Chat icon with unread count
+                    StreamBuilder<int>(
+                        stream: _realtimeDBService.getUnreadChatsCount(),
+                        builder: (context, snapshot) {
+                          final int unreadCount = snapshot.data ?? 0;
+
+                          return Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chat_outlined, size: 28),
+                                onPressed: () {
+                                  // Navigate to chat list screen
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ChatListScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    child: Text(
+                                      unreadCount > 9 ? '9+' : '$unreadCount',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        }),
+                  ],
+                ),
+              ),
+
+              // Main card for scanning
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF377047),
+                        Color(0xFF4CAF50),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Transform waste into creation',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScanScreen(),
+                            ),
+                          );
+                        },
                         child: Container(
-                          padding: const EdgeInsets.all(2),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
-                            color: Colors.red,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 14,
-                            minHeight: 14,
-                          ),
-                          child: const Text(
-                            '1',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                            ),
-                            textAlign: TextAlign.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.qr_code_scanner,
+                                    color: Color(0xFF377047),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Start Scanning',
+                                    style: TextStyle(
+                                      color: Color(0xFF377047),
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Color(0xFF377047),
+                                size: 16,
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
 
-              const SizedBox(height: 20),
+              // Stats section
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _userStatsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-              // Main action card
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2E7D32),
-                  borderRadius: BorderRadius.circular(15),
+                    final stats = snapshot.data ??
+                        {
+                          'totalCO2Saved': 0.0,
+                          'totalXP': 0,
+                          'completedProjects': 0,
+                        };
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildStatsContainer(
+                            icon: Icons.qr_code_scanner,
+                            value: '${stats['completedProjects']}',
+                            label: 'Total Scans',
+                          ),
+                          Container(
+                            width: 1,
+                            height: 50,
+                            color: Colors.grey.shade200,
+                          ),
+                          _buildStatsContainer(
+                            icon: Icons.recycling,
+                            value: '${stats['completedProjects']}',
+                            label: 'Completed Projects',
+                          ),
+                          Container(
+                            width: 1,
+                            height: 50,
+                            color: Colors.grey.shade200,
+                          ),
+                          _buildStatsContainer(
+                            icon: Icons.star_border,
+                            value: '${stats['totalXP']}',
+                            label: 'Points Earned',
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-                padding: const EdgeInsets.all(20),
+              ),
+
+              // Badge Earned section
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _userStatsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final stats = snapshot.data ??
+                        {
+                          'totalCO2Saved': 0.0,
+                          'totalXP': 0,
+                          'completedProjects': 0,
+                        };
+
+                    // Calculate progress - cap at 1.0 for completed progress
+                    final progress =
+                        (stats['totalXP'] / 1000.0).clamp(0.0, 1.0);
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Badge Earned: Eco Explorer',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                'CO',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              Text(
+                                '2',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              Text(
+                                ' Saved: ${stats['totalCO2Saved'].toStringAsFixed(1)} kg',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          // Progress bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 10,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF377047),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${stats['totalXP']}/1000 XP',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.recycling,
+                                color: Color(0xFF377047),
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Recommended project section
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Transform waste into creation',
+                      'Upcycle Project for You',
                       style: TextStyle(
-                        color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    InkWell(
-                      onTap: () {
-                        // Navigate to scan screen
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ScanScreen()),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(
-                              Icons.qr_code_scanner,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Start Scanning',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: 12),
+
+                    // Project card
+                    SizedBox(
+                      height: 180,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _buildProjectCard(_recommendedProject),
+                          const SizedBox(width: 16),
+                          _buildProjectCard(_recommendedProject),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 20),
-
-              // Stats section
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatItem('6', 'Total Scans', Icons.qr_code_scanner),
-                    _buildDivider(),
-                    _buildStatItem(
-                        '6', 'Completed Projects', Icons.check_circle_outline),
-                    _buildDivider(),
-                    _buildStatItem('200', 'Points Earned', Icons.star_outline),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Badge section
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Badge Earned: Eco Explorer',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2E7D32),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.recycling,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'CO₂ Saved: 4.2 kg',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Stack(
-                      children: [
-                        Container(
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        FractionallySizedBox(
-                          widthFactor: 0.26, // 26/100 for 26% progress
-                          child: Container(
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2E7D32),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      '26/1000 XP',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Upcycle projects section
-              const Text(
-                'Upcycle Project for You',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              // Horizontal scrolling projects
-              SizedBox(
-                height: 200,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _buildProjectCard('Terracotta', '\$15.00', 'Outdoor'),
-                    _buildProjectCard('Bottle Lamp', '\$10.00', 'Indoor'),
-                    _buildProjectCard('Paper Art', '\$8.00', 'Decoration'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
+              // Add space at the bottom
+              const SizedBox(height: 80),
             ],
           ),
+        ));
+  }
+
+  Widget _buildStatsContainer({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFF377047), size: 20),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(String value, String label, IconData icon) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2E7D32),
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
+  Widget _buildProjectCard(Recommendation project) {
     return Container(
-      height: 30,
-      width: 1,
-      color: Colors.grey.withOpacity(0.3),
-    );
-  }
-
-  Widget _buildProjectCard(String title, String price, String category) {
-    return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 15),
+      width: 180,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Image
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+            child: Image.network(
+              'https://picsum.photos/200/120',
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Category label
           Container(
-            height: 100,
+            margin: const EdgeInsets.only(left: 12, top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'Outdoor',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey,
               ),
             ),
-            alignment: Alignment.topLeft,
-            child: Container(
-              margin: const EdgeInsets.all(8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                category,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                ),
+          ),
+          // Project name and price
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text(
+              project.name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E7D32),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: const Text(
+              '\$15.00',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF377047),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

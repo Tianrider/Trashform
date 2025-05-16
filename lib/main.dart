@@ -8,13 +8,12 @@ import 'package:trashform/screens/auth/login_screen.dart';
 import 'package:trashform/screens/auth/signup_screen.dart';
 import 'package:trashform/screens/main_screen.dart';
 import 'package:trashform/screens/scan_screen.dart';
+import 'package:trashform/screens/home_screen.dart';
 import 'package:trashform/services/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp();
 
   // Enable debug logging for Firebase Auth
   FirebaseAuth.instance.setLanguageCode("en");
@@ -40,18 +39,43 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Trashform',
-      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
-        useMaterial3: true,
+        primarySwatch: Colors.green,
+        primaryColor: const Color(0xFF377047),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF377047),
+          primary: const Color(0xFF377047),
+        ),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF377047),
+          foregroundColor: Colors.white,
+        ),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(
+            color: Color(0xFF377047),
+            fontWeight: FontWeight.bold,
+          ),
+          titleMedium: TextStyle(
+            color: Color(0xFF377047),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF377047),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
       ),
-      initialRoute: '/',
+      home: const AuthWrapper(),
       routes: {
-        '/': (context) => const AuthWrapper(),
-        '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
-        '/scan': (context) => const ScanScreen(),
+        '/onboarding': (context) => const OnboardingScreen(),
       },
     );
   }
@@ -71,11 +95,11 @@ class AuthWrapper extends StatelessWidget {
     }
 
     // If we have a logged-in user, show the main app screen
-    // Otherwise, show the onboarding page first
+    // Otherwise, show the onboarding page
     if (user != null) {
       return const MainScreen();
     } else {
-      return const HomePage(); // Still showing HomePage for now but will navigate to onboarding via button
+      return const OnboardingScreen();
     }
   }
 }
@@ -231,7 +255,6 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 10),
                     ],
                   ),
                 ),

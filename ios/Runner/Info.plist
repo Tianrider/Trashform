@@ -46,8 +46,10 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera to scan waste items for recycling and upcycling suggestions.</string>
+	<string>We need access to your camera to take photos of your recycled projects.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to upload images of your recycled projects.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>We need access to your microphone for video recordings when scanning items.</string>
+	<string>We need access to your microphone for complete camera functionality.</string>
 </dict>
 </plist>
