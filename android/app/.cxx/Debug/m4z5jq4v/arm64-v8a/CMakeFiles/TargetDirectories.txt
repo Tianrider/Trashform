@@ -1,0 +1,2 @@
+C:/Cooking/HACKATHONS/Trashform/trashform/android/app/.cxx/Debug/m4z5jq4v/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Cooking/HACKATHONS/Trashform/trashform/android/app/.cxx/Debug/m4z5jq4v/arm64-v8a/CMakeFiles/rebuild_cache.dir

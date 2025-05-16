@@ -36,6 +36,11 @@ dependencies:
     cupertino_icons: ^1.0.6
     flutter_svg: ^2.1.0
 
+    # Firebase packages
+    firebase_core: ^2.24.2
+    firebase_auth: ^4.15.3
+    cloud_firestore: ^4.13.6
+
 dev_dependencies:
     flutter_test:
         sdk: flutter
@@ -61,7 +66,12 @@ flutter:
     assets:
         - assets/images/
         - assets/images/trashform_logo.svg
+        - assets/images/trashform_logo.png
         - assets/images/scanning_illustration.png
+        - assets/images/scan_icon.svg
+        - assets/images/recycle_icon.svg
+        - assets/images/impact_icon.svg
+        - assets/images/placeholder.png
 
     # An image asset can refer to one or more resolution-specific "variants", see
     # https://flutter.dev/assets-and-images/#resolution-aware

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "898243505007",
+    "project_id": "trashform-72d5f",
+    "storage_bucket": "trashform-72d5f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:898243505007:android:7b18cd99c006eb2af5569a",
+        "android_client_info": {
+          "package_name": "com.example.trashform"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5hiW3Q5hSAB1RVDq7B2hDbcGxArdHqOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

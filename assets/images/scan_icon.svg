@@ -1,0 +1,13 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple scan frame -->
+  <rect x="40" y="40" width="120" height="120" rx="10" stroke="#2E7D32" stroke-width="4" stroke-dasharray="10 5" fill="none"/>
+  
+  <!-- Scan line -->
+  <line x1="40" y1="100" x2="160" y2="100" stroke="#2E7D32" stroke-width="4"/>
+  
+  <!-- Corner markers -->
+  <path d="M40 60 L40 50 Q40 40 50 40 L60 40" stroke="#2E7D32" stroke-width="6" fill="none"/>
+  <path d="M140 40 L150 40 Q160 40 160 50 L160 60" stroke="#2E7D32" stroke-width="6" fill="none"/>
+  <path d="M160 140 L160 150 Q160 160 150 160 L140 160" stroke="#2E7D32" stroke-width="6" fill="none"/>
+  <path d="M60 160 L50 160 Q40 160 40 150 L40 140" stroke="#2E7D32" stroke-width="6" fill="none"/>
+</svg> 

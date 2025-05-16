@@ -1,0 +1,18 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Chart background -->
+  <rect x="40" y="40" width="120" height="120" rx="4" fill="#E8F5E9"/>
+  
+  <!-- Horizontal lines -->
+  <line x1="40" y1="70" x2="160" y2="70" stroke="#BDBDBD" stroke-width="1"/>
+  <line x1="40" y1="100" x2="160" y2="100" stroke="#BDBDBD" stroke-width="1"/>
+  <line x1="40" y1="130" x2="160" y2="130" stroke="#BDBDBD" stroke-width="1"/>
+  
+  <!-- Chart bars -->
+  <rect x="60" y="130" width="20" height="30" fill="#2E7D32"/>
+  <rect x="90" y="110" width="20" height="50" fill="#2E7D32"/>
+  <rect x="120" y="80" width="20" height="80" fill="#2E7D32"/>
+  
+  <!-- Upward arrow -->
+  <path d="M150 70L160 80L150 90" stroke="#2E7D32" stroke-width="3" fill="none"/>
+  <line x1="160" y1="80" x2="120" y2="80" stroke="#2E7D32" stroke-width="3"/>
+</svg> 
