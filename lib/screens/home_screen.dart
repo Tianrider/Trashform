@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'scan_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -94,7 +95,12 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 15),
                     InkWell(
                       onTap: () {
-                        // Handle scan action
+                        // Navigate to scan screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ScanScreen()),
+                        );
                       },
                       child: Container(
                         decoration: BoxDecoration(

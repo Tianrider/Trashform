@@ -5,6 +5,7 @@ import 'home_screen.dart';
 import 'community_screen.dart';
 import 'marketplace_screen.dart';
 import 'profile_screen.dart';
+import 'scan_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -39,15 +40,12 @@ class _MainScreenState extends State<MainScreen> {
 
   void _showScanOptions() {
     if (kDebugMode) {
-      print("Scan button pressed - would open camera");
+      print("Opening camera for scanning");
     }
-    // Here you would typically open the camera or show scan options
-    // For now just show a snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Scan functionality will be implemented soon!'),
-        duration: Duration(seconds: 2),
-      ),
+    // Navigate to the scan screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ScanScreen()),
     );
   }
 

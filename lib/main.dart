@@ -7,6 +7,7 @@ import 'package:trashform/screens/onboarding_screen.dart';
 import 'package:trashform/screens/auth/login_screen.dart';
 import 'package:trashform/screens/auth/signup_screen.dart';
 import 'package:trashform/screens/main_screen.dart';
+import 'package:trashform/screens/scan_screen.dart';
 import 'package:trashform/services/firebase_options.dart';
 
 void main() async {
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
+        '/scan': (context) => const ScanScreen(),
       },
     );
   }
@@ -176,7 +178,7 @@ class HomePage extends StatelessWidget {
                           onPressed: () {
                             if (isLoggedIn) {
                               // If logged in, proceed to the scanning feature
-                              // TODO: Navigate to scanning feature
+                              Navigator.pushNamed(context, '/scan');
                               if (kDebugMode) {
                                 print(
                                     "Starting scanning functionality (user logged in)");

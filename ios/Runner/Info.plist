@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to scan waste items for recycling and upcycling suggestions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need access to your microphone for video recordings when scanning items.</string>
 </dict>
 </plist>
